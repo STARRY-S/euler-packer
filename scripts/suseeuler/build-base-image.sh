@@ -76,87 +76,87 @@ if [[ ! -f "${SUSEEULER_IMG}.qcow2" ]]; then
     cp ${SUSEEULER_IMG}.qcow2.backup ${SUSEEULER_IMG}.qcow2
 fi
 
-DEV_NUM="/dev/nbd1"
-echo "---- modprobe nbd max_part=8..."
-sudo modprobe nbd max_part=8
-echo "---- qemu-nbd..."
-nbd_loaded=$(lsblk | grep ${DEV_NUM#"/dev/"} || true)
-if [[ ! -z "${nbd_loaded}" ]]; then
-    sudo qemu-nbd -d "${DEV_NUM}"
-fi
-sudo qemu-nbd -c "${DEV_NUM}" "${SUSEEULER_IMG}.qcow2"
-echo "---- Disk layout"
-echo "fdisk:"
-sudo fdisk -l "${DEV_NUM}"
-echo "---- Finding root disk partition"
-PARTITION=$(sudo fdisk -l | grep $DEV_NUM | grep "Linux filesystem" | cut -d ' ' -f 1 || true)
-if [[ -z $PARTITION ]]; then
-    errcho "failed to get partition num"
-    exit 1
-fi
-echo "---- root partition: $PARTITION"
-echo "---- Running e2fsck"
-sudo e2fsck -fy ${PARTITION} || true # Ignore error
-echo "---- Resizing ext4 file system size..."
-sudo resize2fs ${PARTITION} 5G
-sudo sync
+# DEV_NUM="/dev/nbd1"
+# echo "---- modprobe nbd max_part=8..."
+# sudo modprobe nbd max_part=8
+# echo "---- qemu-nbd..."
+# nbd_loaded=$(lsblk | grep ${DEV_NUM#"/dev/"} || true)
+# if [[ ! -z "${nbd_loaded}" ]]; then
+#     sudo qemu-nbd -d "${DEV_NUM}"
+# fi
+# sudo qemu-nbd -c "${DEV_NUM}" "${SUSEEULER_IMG}.qcow2"
+# echo "---- Disk layout"
+# echo "fdisk:"
+# sudo fdisk -l "${DEV_NUM}"
+# echo "---- Finding root disk partition"
+# PARTITION=$(sudo fdisk -l | grep $DEV_NUM | grep "Linux filesystem" | cut -d ' ' -f 1 || true)
+# if [[ -z $PARTITION ]]; then
+#     errcho "failed to get partition num"
+#     exit 1
+# fi
+# echo "---- root partition: $PARTITION"
+# echo "---- Running e2fsck"
+# sudo e2fsck -fy ${PARTITION} || true # Ignore error
+# echo "---- Resizing ext4 file system size..."
+# sudo resize2fs ${PARTITION} 5G
+# sudo sync
 
-# Add some timeout to avoid device busy error
-sleep 1
-# Reload partition table to avoid device or resource busy
-echo "---- Reloading partition table..."
-sudo partprobe ${DEV_NUM}
-sleep 1
-echo "---- Resizing partition size..."
-echo yes | sudo parted ${DEV_NUM} ---pretend-input-tty resizepart ${PARTITION#"${DEV_NUM}p"} 6GB
-sleep 1
-echo "---- Resized partition"
-sudo fdisk -l ${DEV_NUM}
-sudo sync
-sleep 1
-sudo partprobe ${DEV_NUM}
-sleep 1
+# # Add some timeout to avoid device busy error
+# sleep 1
+# # Reload partition table to avoid device or resource busy
+# echo "---- Reloading partition table..."
+# sudo partprobe ${DEV_NUM}
+# sleep 1
+# echo "---- Resizing partition size..."
+# echo yes | sudo parted ${DEV_NUM} ---pretend-input-tty resizepart ${PARTITION#"${DEV_NUM}p"} 6GB
+# sleep 1
+# echo "---- Resized partition"
+# sudo fdisk -l ${DEV_NUM}
+# sudo sync
+# sleep 1
+# sudo partprobe ${DEV_NUM}
+# sleep 1
 
-# Use sfdisk to backup the shrinked partition table.
-echo "---- Backup partition table"
-sudo sfdisk --dump ${DEV_NUM} > partition-backup.dump
-sudo grep -v last-lba partition-backup.dump > partition.dump
-echo "---- partition table:"
-grep ${DEV_NUM} partition-backup.dump
-sleep 1
+# # Use sfdisk to backup the shrinked partition table.
+# echo "---- Backup partition table"
+# sudo sfdisk --dump ${DEV_NUM} > partition-backup.dump
+# sudo grep -v last-lba partition-backup.dump > partition.dump
+# echo "---- partition table:"
+# grep ${DEV_NUM} partition-backup.dump
+# sleep 1
 
-# Disconnect nbd disk
-sudo qemu-nbd -d ${DEV_NUM}
-# Shrink qcow2 image size to 8G
-echo "---- Shrink qcow2 disk to 8G"
-qemu-img resize ${SUSEEULER_IMG}.qcow2 --shrink 8G
-sleep 1
-# Reconnect nbd disk
-sudo qemu-nbd -c "${DEV_NUM}" "${SUSEEULER_IMG}.qcow2"
-sleep 1
-# Use sfdisk to restore GPT partition table.
-echo "---- Restore the partition table"
-sudo sfdisk ${DEV_NUM} < partition.dump
-echo "---- Restored partition table"
-sudo fdisk -l ${DEV_NUM}
+# # Disconnect nbd disk
+# sudo qemu-nbd -d ${DEV_NUM}
+# # Shrink qcow2 image size to 8G
+# echo "---- Shrink qcow2 disk to 8G"
+# qemu-img resize ${SUSEEULER_IMG}.qcow2 --shrink 8G
+# sleep 1
+# # Reconnect nbd disk
+# sudo qemu-nbd -c "${DEV_NUM}" "${SUSEEULER_IMG}.qcow2"
+# sleep 1
+# # Use sfdisk to restore GPT partition table.
+# echo "---- Restore the partition table"
+# sudo sfdisk ${DEV_NUM} < partition.dump
+# echo "---- Restored partition table"
+# sudo fdisk -l ${DEV_NUM}
 
-# SUSE Euler Linux 2.1 need to add `rd.multipath=0` kernel parameter to
-# disable multipath, or the system will fail to boot on AWS.
-if [[ ${SUSEEULER_VERSION} == "2.1" ]]; then
-    echo "----- Update kernel parameter to disable multipath"
-    mkdir -p mnt
-    sudo mount ${PARTITION} mnt
-    sudo sed -i 's/loglevel=5/loglevel=5 rd.multipath=0/' ./mnt/boot/grub2/grub.cfg
-    echo "----- Updated kernel parameter"
-    sudo cat ./mnt/boot/grub2/grub.cfg | grep rd.multipath
-    sleep 1
-    sudo sync
-    sudo umount mnt
-fi
+# # SUSE Euler Linux 2.1 need to add `rd.multipath=0` kernel parameter to
+# # disable multipath, or the system will fail to boot on AWS.
+# if [[ ${SUSEEULER_VERSION} == "2.1" ]]; then
+#     echo "----- Update kernel parameter to disable multipath"
+#     mkdir -p mnt
+#     sudo mount ${PARTITION} mnt
+#     sudo sed -i 's/loglevel=5/loglevel=5 rd.multipath=0/' ./mnt/boot/grub2/grub.cfg
+#     echo "----- Updated kernel parameter"
+#     sudo cat ./mnt/boot/grub2/grub.cfg | grep rd.multipath
+#     sleep 1
+#     sudo sync
+#     sudo umount mnt
+# fi
 
-# Disconnect nbd disk
-sudo qemu-nbd -d ${DEV_NUM}
-sleep 1
+# # Disconnect nbd disk
+# sudo qemu-nbd -d ${DEV_NUM}
+# sleep 1
 
 echo "---- qemu-img info"
 qemu-img info ${SUSEEULER_IMG}.qcow2

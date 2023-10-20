@@ -58,27 +58,27 @@ SUSEEULER_IMG="SEL-${SUSEEULER_VERSION}.${SUSEEULER_ARCH}-1.1.0-normal-Build"
 cd $WORKING_DIR/tmp
 echo "---- Current dir: $(pwd)"
 
-echo "---- Converting SHRINKED-${SUSEEULER_IMG}.qcow2 to RAW image..."
+echo "---- Converting SHRINKED-${SUSEEULER_IMG}.qcow2 to VHD image..."
 if [[ ! -e "SHRINKED-${SUSEEULER_IMG}.qcow2" ]]; then
    errcho "File 'SHRINKED-${SUSEEULER_IMG}.qcow2' not found in 'tmp/' folder!"
    exit 1
 fi
-rm ${SUSEEULER_IMG}.raw || true
-qemu-img convert SHRINKED-${SUSEEULER_IMG}.qcow2 ${SUSEEULER_IMG}.raw
+rm ${SUSEEULER_IMG}.vpc || true
+qemu-img convert -f qcow2 -O vpc SHRINKED-${SUSEEULER_IMG}.qcow2 ${SUSEEULER_IMG}.vpc
 
-echo "---- Uploading RAW image to S3 Bucket..."
-EXISTS=$(aws s3 ls ${BUCKET_NAME}/${SUSEEULER_IMG}.raw || echo -n "false")
+echo "---- Uploading VHD image to S3 Bucket..."
+EXISTS=$(aws s3 ls ${BUCKET_NAME}/${SUSEEULER_IMG}.vpc || echo -n "false")
 if [[ "${EXISTS}" == "false" ]]; then
    echo "--- aws s3 cp"
-   aws s3 cp ${SUSEEULER_IMG}.raw s3://${BUCKET_NAME}/
+   aws s3 cp ${SUSEEULER_IMG}.vpc s3://${BUCKET_NAME}/
 else
-   echo "---- File ${SUSEEULER_IMG}.raw already uploaded on S3, delete and re-upload it?"
+   echo "---- File ${SUSEEULER_IMG}.vpc already uploaded on S3, delete and re-upload it?"
    read -p "---- [y/N]: " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || DELETE="false"
    if [[ "$DELETE" == "false" ]]; then
       echo "----- Skip re-upload."
    else
-      aws s3 rm s3://${BUCKET_NAME}/${SUSEEULER_IMG}.raw
-      aws s3 cp ${SUSEEULER_IMG}.raw s3://${BUCKET_NAME}/
+      aws s3 rm s3://${BUCKET_NAME}/${SUSEEULER_IMG}.vpc
+      aws s3 cp ${SUSEEULER_IMG}.vpc s3://${BUCKET_NAME}/
    fi
 fi
 
@@ -152,9 +152,9 @@ aws iam put-role-policy --role-name vmimport --policy-name vmimport --policy-doc
 
 echo "---- Importing image..."
 aws ec2 import-snapshot \
-   --description "SUSE Euler Linux RAW image import task" \
+   --description "SUSE Euler Linux VHD image import task" \
    --disk-container \
-   "Format=RAW,UserBucket={S3Bucket=${BUCKET_NAME},S3Key=${SUSEEULER_IMG}.raw}" > import-output.txt
+   "Format=VHD,UserBucket={S3Bucket=${BUCKET_NAME},S3Key=${SUSEEULER_IMG}.vpc}" > import-output.txt
 cat import-output.txt
 echo "---- Import task created."
 
