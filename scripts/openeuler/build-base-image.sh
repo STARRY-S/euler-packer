@@ -24,15 +24,9 @@ fi
 
 # Ensure utils are installed
 type qemu-img > /dev/null
-type qemu-nbd > /dev/null
-type partprobe > /dev/null
-type resizepart > /dev/null
-type fdisk > /dev/null
-type e2fsck > /dev/null
-type resize2fs > /dev/null
 
 if [[ -z "${OPENEULER_VERSION}" ]]; then
-    errcho "---- Failed to shrink disk size: environment OPENEULER_VERSION required!"
+    errcho "---- environment OPENEULER_VERSION required!"
     exit 1
 else
     echo "---- OPENEULER_VERSION: ${OPENEULER_VERSION}"
@@ -54,7 +48,11 @@ OPENEULER_DOWNLOAD_LINK="${OPENEULER_MIRROR%/}/openEuler-${OPENEULER_VERSION}/vi
 mkdir -p $WORKING_DIR/tmp && cd $WORKING_DIR/tmp
 if [[ -e "${OPENEULER_IMG}.raw" ]]; then
     echo "---- ${OPENEULER_IMG}.raw already exists, delete and re-create it?"
-    read -p "---- [y/N]: " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 0
+    if [[ -z ${DRY_RUN:-} ]]; then
+        read -p "---- [y/N]: " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 0
+    else
+        echo "Y"
+    fi
     rm ${OPENEULER_IMG}.raw
 fi
 
@@ -76,6 +74,7 @@ if [[ ! -f "${OPENEULER_IMG}.qcow2" ]]; then
     cp ${OPENEULER_IMG}.qcow2.backup ${OPENEULER_IMG}.qcow2
 fi
 
+#### TODO:
 DEV_NUM="/dev/nbd0"
 echo "---- modprobe nbd max_part=3..."
 sudo modprobe nbd max_part=3
@@ -188,6 +187,7 @@ sudo sync
 sudo umount mnt
 
 sudo qemu-nbd -d ${DEV_NUM}
+### TODO: DONE
 
 mv ${OPENEULER_IMG}.qcow2 SHRINKED-${OPENEULER_IMG}.qcow2
 ls -alh SHRINKED-${OPENEULER_IMG}.qcow2

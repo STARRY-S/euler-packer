@@ -13,6 +13,11 @@ function errcho() {
    >&2 echo $@;
 }
 
+if [[ ! -z ${DRY_RUN:-} ]]; then
+   echo "Dry-run enabled, skip hwcloud"
+   exit 0
+fi
+
 if [[ $(uname) == "Darwin" ]]; then
     errcho "macOS is not supported"
     exit 1

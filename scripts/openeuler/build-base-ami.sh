@@ -13,6 +13,11 @@ function errcho() {
    >&2 echo $@;
 }
 
+if [[ ! -z ${DRY_RUN:-} ]]; then
+   echo "Dry-run enabled, skip base-ami"
+   exit 0
+fi
+
 if [[ $(uname) == "Darwin" ]]; then
     errcho "macOS is not supported"
     exit 1
@@ -24,12 +29,6 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "Example: "
     echo "      BUCKET_NAME=example-bucket OPENEULER_VERSION=24.03-LTS OPENEULER_ARCH=x86_64 $0"
     exit 0
-fi
-
-if [[ ! -e "${HOME}/.aws/config" ]]; then
-    errcho "AWS cli not configured!"
-    errcho "Please run 'aws configure' before running this script"
-    exit 1
 fi
 
 if [[ -z "${BUCKET_NAME}" ]]; then

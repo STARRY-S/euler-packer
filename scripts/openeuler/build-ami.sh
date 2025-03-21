@@ -12,6 +12,11 @@ function errcho() {
    >&2 echo $@;
 }
 
+if [[ ! -z ${DRY_RUN:-} ]]; then
+   echo "Dry-run enabled, skip build ami"
+   exit 0
+fi
+
 if [[ $(uname) == "Darwin" ]]; then
     errcho "macOS is not supported"
     exit 1

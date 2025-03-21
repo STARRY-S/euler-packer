@@ -10,6 +10,11 @@ function errcho() {
    >&2 echo $@;
 }
 
+if [[ ! -z ${DRY_RUN:-} ]]; then
+   echo "Dry-run enabled, skip hwcloud-base-image"
+   exit 0
+fi
+
 # Set working dir to root dir of this project
 cd $(dirname $0)/../../
 export WORKING_DIR=$(pwd)
